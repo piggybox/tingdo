@@ -74,7 +74,7 @@ class AppStore extends ChangeNotifier {
             : Witness.fromJson(Map<String, dynamic>.from(map['witness'] as Map));
       }
     } catch (e) {
-      debugPrint('tingdo: could not read saved data ($e); starting fresh.');
+      debugPrint('TingDo: could not read saved data ($e); starting fresh.');
       _habits = [];
     }
     _loaded = true;

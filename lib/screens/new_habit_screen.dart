@@ -4,6 +4,7 @@ import '../data/store_scope.dart';
 import '../logic/anchor.dart';
 import '../theme.dart';
 import '../util/dates.dart';
+import '../widgets/mark.dart';
 
 /// Setup asks six short questions, one at a time. The order matters: the thing,
 /// then who it makes you, then the cue, then the ceiling, then the floor.
@@ -124,21 +125,36 @@ class _NewHabitScreenState extends State<NewHabitScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (widget.isFirstHabit && _step == 0) ...[
-                  const Text(
-                    'tingdo',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.full,
-                      letterSpacing: 0.4,
-                    ),
+                  Row(
+                    children: [
+                      const TingDoMark(height: 34),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'TingDo',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'One habit. No streaks to break.',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: AppColors.textFaint,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'One habit. No streaks to break.',
-                    style: TextStyle(fontSize: 14, color: AppColors.textFaint),
-                  ),
-                  const SizedBox(height: 34),
+                  const SizedBox(height: 38),
                 ],
                 AnimatedSize(
                   duration: const Duration(milliseconds: 180),

@@ -1,4 +1,4 @@
-# tingdo
+# TingDo
 
 A local, offline habit tracker for macOS desktop, built in Flutter.
 
@@ -11,7 +11,7 @@ them.
 
 ```sh
 flutter run -d macos      # dev
-flutter test              # 49 tests
+flutter test              # 52 tests
 flutter build macos       # release build → build/macos/Build/Products/Release
 ```
 
@@ -69,6 +69,18 @@ the note; you send it.
 - Copy is a coach, not a drill sergeant. "Rough day? Take a rest day", never
   "Don't break your streak!".
 
+## The icon
+
+A T built from two equal horizontal bars with a stem between them: the top bar
+is the full version, the bottom bar is the floor. They are drawn identically on
+purpose — the app refuses to rank them, so the icon does too.
+
+`./design/build_icons.sh` regenerates the whole set from ImageMagick primitives
+(no binary source file to lose). It draws three geometries, because the mark has
+to survive being small: the full version at 128px and up, a heavier one at 32
+and 64, and the bare T at 16, where the gap under the stem is less than a pixel
+and the floor bar just smears into the letter.
+
 ## Layout
 
 ```
@@ -82,6 +94,6 @@ lib/
     insights.dart        weekday and reason patterns
   data/store.dart        JSON persistence + all mutations
   screens/               today · history · settings · setup
-  widgets/               option tiles, day grid, miss-reason dialog
+  widgets/               option tiles, day grid, miss-reason dialog, the mark
 test/                    unit tests for the logic, widget tests for the flows
 ```

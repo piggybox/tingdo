@@ -4,6 +4,7 @@ import 'package:tingdo/data/store.dart';
 import 'package:tingdo/main.dart';
 import 'package:tingdo/models/day_entry.dart';
 import 'package:tingdo/util/dates.dart';
+import 'package:tingdo/widgets/mark.dart';
 
 void main() {
   late AppStore store;
@@ -34,6 +35,17 @@ void main() {
       (tester) async {
     await pumpApp(tester);
     expect(find.text("What's the habit?"), findsOneWidget);
+    expect(find.byType(TingDoMark), findsOneWidget);
+    expect(find.text('TingDo'), findsOneWidget);
+  });
+
+  testWidgets('the mark keeps the icon artwork\'s proportions', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(body: Center(child: TingDoMark(height: 48))),
+    ));
+    final size = tester.getSize(find.byType(TingDoMark));
+    expect(size.height, 48);
+    expect(size.width, closeTo(48 * 423 / 489, 0.01));
   });
 
   testWidgets('setup refuses a clock and accepts a cue', (tester) async {
@@ -138,5 +150,82 @@ void main() {
 
     expect(store.witness?.name, 'Sam');
     expect(find.textContaining('Weekly check-in'), findsOneWidget);
+
+    await tester.drag(find.text('Your witness'), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    expect(find.byType(TingDoMark), findsOneWidget);
+  });
+
+  testWidgets('the anchor can be rewritten later, and still refuses a clock',
+      (tester) async {
+    await addWriting();
+    await pumpApp(tester);
+
+    await tester.drag(find.text('Write'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('History'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Edit').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'at 7am');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('A clock is not a cue'), findsOneWidget);
+    final save = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.widgetWithText(TextButton, 'Save'),
+    );
+    expect(tester.widget<TextButton>(save).onPressed, isNull);
+
+    await tester.enterText(
+      find.byType(TextField).last,
+      'After I close my laptop for the day',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(
+      store.habits.first.anchor,
+      'After I close my laptop for the day',
+    );
+  });
+
+  testWidgets('what the votes are for can be rewritten later', (tester) async {
+    await addWriting();
+    await pumpApp(tester);
+
+    await tester.drag(find.text('Write'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('History'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vote for'), findsOneWidget);
+    await tester.tap(find.text('Edit').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Who does this make you?'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'someone who finishes things');
+    await tester.pumpAndSettle();
+    // The dialog previews the exact line the change will produce.
+    expect(find.text('0 votes for: someone who finishes things'), findsOneWidget);
+
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text('Save'),
+    ));
+    await tester.pumpAndSettle();
+    expect(store.habits.first.identity, 'someone who finishes things');
+
+    // And Today reflects it immediately. Swipe back one page at a time; the
+    // PageView is the stable drag target, since the page contents change.
+    for (var i = 0; i < 2; i++) {
+      await tester.drag(find.byType(PageView), const Offset(600, 0));
+      await tester.pumpAndSettle();
+    }
+    expect(
+      find.text('0 votes for: someone who finishes things'),
+      findsOneWidget,
+    );
   });
 }

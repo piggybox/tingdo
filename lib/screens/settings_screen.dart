@@ -8,6 +8,7 @@ import '../logic/stats.dart';
 import '../models/habit.dart';
 import '../theme.dart';
 import '../util/dates.dart';
+import '../widgets/mark.dart';
 import 'history_screen.dart' show describeWeekdays, reasonBreakdown;
 
 class SettingsScreen extends StatelessWidget {
@@ -32,9 +33,30 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 18),
             ],
             const _StorageCard(),
+            const SizedBox(height: 34),
+            const _Footer(),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The mark, kept quiet — this is the bottom of the last page, not a banner.
+class _Footer extends StatelessWidget {
+  const _Footer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        TingDoMark(height: 20, color: AppColors.textFaint),
+        SizedBox(height: 10),
+        Text(
+          'The floor counts.',
+          style: TextStyle(fontSize: 12.5, color: AppColors.textFaint),
+        ),
+      ],
     );
   }
 }
@@ -263,6 +285,14 @@ class _HabitSettingsCard extends StatelessWidget {
             action: 'Edit',
             onAction: () => _editAnchor(context, store, habit),
           ),
+          // Who you are is allowed to change. Locking this to whatever you
+          // typed on day one would make the votes add up to someone else.
+          _Row(
+            label: 'Vote for',
+            value: habit.identity,
+            action: 'Edit',
+            onAction: () => _editIdentity(context, store, habit),
+          ),
           // Notifications get quieter as consistency rises. An app that still
           // needs you daily after six months has failed.
           _Row(
@@ -361,49 +391,45 @@ class _HabitSettingsCard extends StatelessWidget {
     if (result != null) await store.setActiveWeekdays(habit, result);
   }
 
+  Future<void> _editIdentity(
+    BuildContext context,
+    AppStore store,
+    Habit habit,
+  ) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => _TextEditDialog(
+        title: 'Who does this make you?',
+        initialValue: habit.identity,
+        hintText: 'someone who writes',
+        validate: (value) =>
+            value.trim().isEmpty ? 'Name the person this makes you.' : null,
+        // Preview the exact line the change produces — that phrasing is the
+        // whole reason the field exists.
+        preview: (value) =>
+            '${habit.votes} ${habit.votes == 1 ? 'vote' : 'votes'} for: '
+            '${value.trim().isEmpty ? '…' : value.trim()}',
+      ),
+    );
+    if (result != null) {
+      await store.updateHabit(habit, (h) => h.identity = result);
+    }
+  }
+
   Future<void> _editAnchor(
     BuildContext context,
     AppStore store,
     Habit habit,
   ) async {
-    final controller = TextEditingController(text: habit.anchor);
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          final error = validateAnchor(controller.text);
-          return AlertDialog(
-            title: const Text('What happens right before it?'),
-            content: SizedBox(
-              width: 380,
-              child: TextField(
-                controller: controller,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                style: const TextStyle(color: AppColors.textPrimary),
-                decoration: InputDecoration(
-                  hintText: anchorExamples.first,
-                  errorText: controller.text.isEmpty ? null : error,
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: error != null
-                    ? null
-                    : () => Navigator.of(context).pop(controller.text.trim()),
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
+      builder: (context) => _TextEditDialog(
+        title: 'What happens right before it?',
+        initialValue: habit.anchor,
+        hintText: anchorExamples.first,
+        validate: validateAnchor,
       ),
     );
-    controller.dispose();
     if (result != null) {
       await store.updateHabit(habit, (h) => h.anchor = result);
     }
@@ -525,6 +551,100 @@ class _StorageCard extends StatelessWidget {
         store.storagePath ?? 'Not saved yet',
         style: const TextStyle(fontSize: 12.5, color: AppColors.textFaint),
       ),
+    );
+  }
+}
+
+/// A one-field editor.
+///
+/// It owns its [TextEditingController] and disposes it in [State.dispose],
+/// rather than after `showDialog` returns — the dialog is still animating out
+/// at that point, and a disposed controller gets rebuilt underneath it.
+class _TextEditDialog extends StatefulWidget {
+  const _TextEditDialog({
+    required this.title,
+    required this.initialValue,
+    required this.hintText,
+    required this.validate,
+    this.preview,
+  });
+
+  final String title;
+  final String initialValue;
+  final String hintText;
+
+  /// Returns the coaching line to show, or null when the value is good.
+  final String? Function(String value) validate;
+
+  /// Optional live rendering of what the value will produce.
+  final String Function(String value)? preview;
+
+  @override
+  State<_TextEditDialog> createState() => _TextEditDialogState();
+}
+
+class _TextEditDialogState extends State<_TextEditDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialValue);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _controller.text;
+    final error = widget.validate(value);
+    final preview = widget.preview?.call(value);
+
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) {
+                if (error == null) Navigator.of(context).pop(value.trim());
+              },
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: widget.hintText,
+                // Hold the error back until there is something to judge.
+                errorText: value.isEmpty ? null : error,
+              ),
+            ),
+            if (preview != null) ...[
+              const SizedBox(height: 14),
+              Text(
+                preview,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed:
+              error != null ? null : () => Navigator.of(context).pop(value.trim()),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
